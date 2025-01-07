@@ -4,6 +4,7 @@
 # CHANGE LOG
 # ----------
 # 2024/01/29	njeffrey	Script created to monitor Eaton / PowerWare UPS via SNMP
+# 2025/01/07	njeffrey	add serial number to output
 
 
 # nagios check to query Eaton / PowerWare UPS via SNMP
@@ -46,7 +47,10 @@
 #  xupsIdentManufacturer        .1.3.6.1.4.1.534.1.1.1.0    Manufacturer
 #  xupsIdentModel               .1.3.6.1.4.1.534.1.1.2.0    UPS model (ie PowerWare Plus Model 18)
 #  xupsIdentSoftwareVersion     .1.3.6.1.4.1.534.1.1.3.0    Firmware revision level(s) of the UPS microcontoller(s)
-#  xupsIdentOemCode             .1.3.6.1.4.1.534.1.1.4.0    A binary code indicated who the UPS was manufactured for or labeld for.  0 or 255 indicates Powerware itself.
+#  xupsIdentOemCode             .1.3.6.1.4.1.534.1.1.4.0    A binary code indicated who the UPS was manufactured for. 0 or 255 indicates Powerware itself
+#  xupsIdentPartNumber          .1.3.6.1.4.1.534.1.1.5.0    Part number
+#  xupsIdentSerialNumber        .1.3.6.1.4.1.534.1.1.6.0    Serial number
+
 #
 #  xupsBatCapacity.0            .1.3.6.1.4.1.534.1.2.4.0    Battery percent charge
 #  xupsBatTimeRemaining         .1.3.6.1.4.1.534.1.2.1.0    Battery runtime remaining in seconds before UPS turns off due to low battery
@@ -272,6 +276,34 @@ sub check_ups_model_serial {
       if ( /$oid ([a-zA-Z0-9_ \-]+)/ ) {  			
          $ups{xupsIdentModel} = $1; 	  	         		#assign value to hash
          print "   Model: $ups{xupsIdentModel} \n" if ($verbose eq "yes");
+      }
+   }                                                                    #end of while loop
+   #
+   # Get the part number
+   $oid = ".1.3.6.1.4.1.534.1.1.5.0";                             
+   $cmd = "$snmpget -Onq -v 1 -c $community $host $oid";
+   print "   running command: $cmd \n" if ($verbose eq "yes");
+   $ups{xupsIdentPartNumber} = "Unknown PartNumber";				#initialize variable
+   open(IN,"$cmd |");                                                   #get the index numbers of the LUNs
+   while (<IN>) {                                                       #read a line from the command output
+      s/\"//g;                                                          #get rid of quotation marks
+      if ( /$oid ([a-zA-Z0-9_ \-]+)/ ) {  			
+         $ups{xupsIdentPartNumber} = $1; 	  	         		#assign value to hash
+         print "   PartNumber: $ups{xupsIdentPartNumber} \n" if ($verbose eq "yes");
+      }
+   }                                                                    #end of while loop
+   #
+   # Get the serial number
+   $oid = ".1.3.6.1.4.1.534.1.1.6.0";                             
+   $cmd = "$snmpget -Onq -v 1 -c $community $host $oid";
+   print "   running command: $cmd \n" if ($verbose eq "yes");
+   $ups{xupsIdentSerialNumber} = "Unknown Serial";				#initialize variable
+   open(IN,"$cmd |");                                                   #get the index numbers of the LUNs
+   while (<IN>) {                                                       #read a line from the command output
+      s/\"//g;                                                          #get rid of quotation marks
+      if ( /$oid ([a-zA-Z0-9_ \-]+)/ ) {  			
+         $ups{xupsIdentSerialNumber} = $1; 	  	         		#assign value to hash
+         print "   SerialNumber: $ups{xupsIdentSerialNumber} \n" if ($verbose eq "yes");
       }
    }                                                                    #end of while loop
    #
@@ -504,7 +536,7 @@ sub print_output {
    #
    # Much of the text of the output will be the same.  Put the common stuff in a variable so we can simplify the outputs
    #
-   $output_details = "Model:$ups{xupsIdentModel}, Power input source:$ups{xupsInputSource},  Battery capacity:$ups{xupsBatCapacity}\%,   Load:$ups{xupsOutputLoad}\%,   Runtime remaining is $ups{xupsBatTimeRemaining} minutes, Number of alarms:$ups{xupsAlarms}";
+   $output_details = "Battery capacity:$ups{xupsBatCapacity}\%,   Load:$ups{xupsOutputLoad}\%,   Runtime:$ups{xupsBatTimeRemaining} minutes, Number of alarms:$ups{xupsAlarms}, Power input source:$ups{xupsInputSource}, Model:$ups{xupsIdentModel}, PartNumber:$ups{xupsIdentPartNumber} SerialNumber:$ups{xupsIdentSerialNumber}";
    #
    #
    if ( ($ups{xupsInputSource} ne "primaryUtility") && ($ups{xupsInputSource} ne "secondaryUtility") ) {
